@@ -10,22 +10,21 @@ public class GameDirector : MonoBehaviour
     private const int BOARD_Y = 4;
     private const float DISTANCE_FROM_CENTER = 1.5f;
 
-    //プレハブセット
+    //プレハブをセットするリスト。インスペクターから設定
     public List<GameObject> prefabTile_List;
 
-    //ボード配列
+    //タイルの配列
     public TileController[,] tileController_Array = new TileController[BOARD_X, BOARD_Y];
 
-    // Start is called before the first frame update
     void Start()
     {
         //タイルオブジェクト配置
         SetTiles();
 
+        //生成したタイルをランダムに動かして混ぜる（ランダムに配置すると詰むので）
         ShuffleBoard();
     }
 
-    // Update is called once per frame
     void Update()
     {
         //クリックしたらタイル入れ替えを試みる
@@ -34,12 +33,16 @@ public class GameDirector : MonoBehaviour
             //タイル取得
             TileController selectedTile = GetTile();
 
+            //取得に成功したら
             if (selectedTile != null)
             {
                 Debug.Log(selectedTile.myNumber + "番のマスが押されたよ");
+
+                //取得したタイルを移動
                 MoveTile(selectedTile);
                 selectedTile = null;
 
+                //クリアチェック
                 if (IsCleared(tileController_Array))
                 {
                     Debug.Log("おめ");
@@ -52,9 +55,12 @@ public class GameDirector : MonoBehaviour
         }
     }
 
+    //1~15のタイルを順番通りに配置
     void SetTiles()
     {
+        //ループ回数のカウント
         int count = 0;
+        //生成する位置
         Vector3 worldPos;
 
         for (int i = 0; i < BOARD_X; i++)
@@ -68,11 +74,12 @@ public class GameDirector : MonoBehaviour
                     return;
                 }
 
-                //座標決定
+                //座標決定　原点から一定距離離れた位置から生成を開始することで盤面がワールドの中央に来る
                 worldPos = new(DISTANCE_FROM_CENTER - j, 0, -DISTANCE_FROM_CENTER + i);
 
-                //プレハブ生成
+                //リストから選んだプレハブを生成
                 GameObject currentTile = Instantiate(prefabTile_List[count], worldPos, Quaternion.identity);
+                //生成したプレハブからTileControllerを取得
                 TileController currentTileCtrl = currentTile.GetComponent<TileController>();
 
                 //配列に格納
@@ -80,17 +87,21 @@ public class GameDirector : MonoBehaviour
                 //TileControllerの初期化
                 currentTileCtrl.initTile(new Vector2Int(i, j), count);
 
+                //ループ回数をカウント
                 count++;
             }
         }
     }
 
+    //クリックしたタイルを取得
     TileController GetTile()
     {
+        //返却用
         TileController ret = null;
 
         Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
 
+        //rayが振れたすべてのオブジェクトの中からPlayerタグがついたオブジェクトを見つけたら返り値にする
         foreach (RaycastHit hit in Physics.RaycastAll(ray))
         {
             if (hit.collider.CompareTag("Player"))
@@ -103,14 +114,18 @@ public class GameDirector : MonoBehaviour
         return ret;
     }
 
+    //タイルを移動させる
     void MoveTile(TileController selected)
     {
+        //移動すべき場所を調べる
         Vector2Int index =  GetMovableTile(selected);
 
-        tileController_Array[selected.pos.x, selected.pos.y] = null; //元居た位置をnullに
+        //元居た位置をnullに
+        tileController_Array[selected.pos.x, selected.pos.y] = null;
+        //行き先をselectedに
+        tileController_Array[index.x, index.y] = selected;
 
-        tileController_Array[index.x, index.y] = selected; //行き先をselectedに
-
+        //ワールド座標を更新
         selected.UpdatePos(index);
     }
 
@@ -119,7 +134,7 @@ public class GameDirector : MonoBehaviour
         //右
         if (IsInBoard(tileController_Array, tile.pos.x, tile.pos.y + 1)) //配列内なら調べる
         {
-            if ((tileController_Array[tile.pos.x, tile.pos.y + 1]) == null)
+            if ((tileController_Array[tile.pos.x, tile.pos.y + 1]) == null) //そこがnullなら(移動可能な場所なら)
             {
                 //Debug.Log("右に動けそう");
                 return new Vector2Int(tile.pos.x, tile.pos.y + 1);
@@ -127,7 +142,7 @@ public class GameDirector : MonoBehaviour
         }
 
         //下
-        if (IsInBoard(tileController_Array, tile.pos.x + 1, tile.pos.y)) //配列内なら調べる
+        if (IsInBoard(tileController_Array, tile.pos.x + 1, tile.pos.y))
         {
             if ((tileController_Array[tile.pos.x + 1, tile.pos.y]) == null)
             {
@@ -137,7 +152,7 @@ public class GameDirector : MonoBehaviour
         }
 
         //左
-        if (IsInBoard(tileController_Array, tile.pos.x, tile.pos.y - 1)) //配列内なら調べる
+        if (IsInBoard(tileController_Array, tile.pos.x, tile.pos.y - 1))
         {
             if ((tileController_Array[tile.pos.x, tile.pos.y - 1]) == null)
             {
@@ -147,7 +162,7 @@ public class GameDirector : MonoBehaviour
         }
 
         //上
-        if (IsInBoard(tileController_Array, tile.pos.x - 1, tile.pos.y)) //配列内なら調べる
+        if (IsInBoard(tileController_Array, tile.pos.x - 1, tile.pos.y))
         {
             if ((tileController_Array[tile.pos.x - 1, tile.pos.y]) == null)
             {
@@ -157,7 +172,7 @@ public class GameDirector : MonoBehaviour
         }
 
         //Debug.Log("全然動けなくっテェ");
-        return new Vector2Int(tile.pos.x, tile.pos.y); //その場から動かない
+        return tile.pos; //その場から動かない
     }
     
     bool IsInBoard(TileController[,] array, int x, int y) //配列外でないか確かめる
@@ -167,18 +182,24 @@ public class GameDirector : MonoBehaviour
             y < 0 ||
             array.GetLength(1) <= y)
         {
-            return false; //配列の外に出ていたらfalseを返す
+            return false; //配列の外に出ていたらfalse
         }
 
         return true; //上記の条件に当てはまらなければtrue
     }
 
+    //クリア判定
     bool IsCleared(TileController[,] array)
     {
+        //ループ回数をカウント
+        int count = 0;
+        //ループの上限回数
+        int end = BOARD_X * BOARD_Y - 1;
+        //ひとつ前に調べたマスの番号
         int previousNum = 0;
-        Vector2Int end = new Vector2Int(BOARD_X - 1, BOARD_Y - 1); //最後のマス
 
-        if (array[end.x, end.y] != null)
+        //最後のマスがnullでないなら絶対にクリアされていない
+        if (array[BOARD_X - 1, BOARD_Y - 1] != null)
         {
             return false;
         }
@@ -187,21 +208,26 @@ public class GameDirector : MonoBehaviour
         {
             for (int j = 0; j < BOARD_Y; j++)
             {
-                if ((i == end.x) && (j == end.y - 1))
-                { 
-                    return true; //最終マスはチェック済なので、そのひとつ前までたどり着いたらクリア
-                }
+                Debug.Log(count);
 
                 if (array[i, j].myNumber < previousNum)
                 {
                     return false; //一つ前のマス寄り数字が大きくないならクリアじゃない
                 }
+
+                previousNum = array[i, j].myNumber;
+                count++;
+
+                //最後のマスを調べてしまうとnullにアクセスしてしまうので調べない
+                if (count == end) break;
             }
         }
 
-        return false;
+        //上記のチェックを通過したならクリア
+        return true;
     }
 
+    //マスをランダムに動かして混ぜる
     async void ShuffleBoard()
     {
         Vector2Int nullPos = new Vector2Int(BOARD_X - 1, BOARD_Y - 1); //ボードの中でnullになっている位置
@@ -226,32 +252,32 @@ public class GameDirector : MonoBehaviour
             }
 
             //nullマスからみて下
-            if (IsInBoard(tileController_Array, nullPos.x + 1, nullPos.y)) //配列内なら調べる
+            if (IsInBoard(tileController_Array, nullPos.x + 1, nullPos.y))
             {
-                if (new Vector2Int(nullPos.x + 1, nullPos.y) != oldPos) //そこが前のターンで触ったマスではないなら
+                if (new Vector2Int(nullPos.x + 1, nullPos.y) != oldPos)
                 {
                     Debug.Log("下を追加");
-                    movableTiles_List.Add(new Vector2Int(nullPos.x + 1, nullPos.y)); //次に触るマスの候補にする
+                    movableTiles_List.Add(new Vector2Int(nullPos.x + 1, nullPos.y));
                 }
             }
 
             //nullマスからみて左
-            if (IsInBoard(tileController_Array, nullPos.x, nullPos.y - 1)) //配列内なら調べる
+            if (IsInBoard(tileController_Array, nullPos.x, nullPos.y - 1))
             {
-                if (new Vector2Int(nullPos.x, nullPos.y - 1) != oldPos) //そこが前のターンで触ったマスではないなら
+                if (new Vector2Int(nullPos.x, nullPos.y - 1) != oldPos)
                 {
                     Debug.Log("左を追加");
-                    movableTiles_List.Add(new Vector2Int(nullPos.x, nullPos.y - 1)); //次に触るマスの候補にする
+                    movableTiles_List.Add(new Vector2Int(nullPos.x, nullPos.y - 1));
                 }
             }
 
             //nullマスからみて下
-            if (IsInBoard(tileController_Array, nullPos.x - 1, nullPos.y)) //配列内なら調べる
+            if (IsInBoard(tileController_Array, nullPos.x - 1, nullPos.y))
             {
-                if(new Vector2Int(nullPos.x - 1, nullPos.y) != oldPos) //そこが前のターンで触ったマスではないなら
+                if(new Vector2Int(nullPos.x - 1, nullPos.y) != oldPos)
                 {
                     Debug.Log("上を追加");
-                    movableTiles_List.Add(new Vector2Int(nullPos.x - 1, nullPos.y)); //次に触るマスの候補にする
+                    movableTiles_List.Add(new Vector2Int(nullPos.x - 1, nullPos.y));
                 }
             }
 
@@ -261,9 +287,12 @@ public class GameDirector : MonoBehaviour
             movePos = movableTiles_List[rnd];
 
             MoveTile(tileController_Array[movePos.x, movePos.y]);
+
+            //nullだったマスの位置をoldPosに格納し、触ったマスの位置をnullPosに格納
             oldPos = nullPos;
             nullPos = movePos;
 
+            //20ミリ秒待つ（シャッフル演出用）
             await Task.Delay(20);
         }
 
